@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수면 시간 & 집중력(CPT) 측정 및 데이터 분석</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js CDN for Analytics Visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Inter Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#f0f3ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .animate-pop { animation: pop 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes pop {
+      0% { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <nav class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid fa-brain text-lg"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-base sm:text-lg leading-tight text-white">수면-집중력 CPT 연구</h1>
+          <p class="text-xs text-slate-400">수학 탐구 보고서 데이터 수집기</p>
+        </div>
+      </div>
+
+      <!-- Admin Mode Toggle Button -->
+      <div class="flex items-center space-x-2">
+        <button id="btn-toggle-admin" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-semibold text-indigo-300 border border-slate-700 transition shadow-sm">
+          <i class="fa-solid fa-chart-line"></i>
+          <span id="admin-btn-label">관리자 모드</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Body Content -->
+  <div class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col">
+
+    <!-- Status / Notification Bar -->
+    <div id="toast-message" class="hidden mb-4 p-3 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-between border">
+      <span id="toast-text"></span>
+      <button onclick="document.getElementById('toast-message').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 1: USER TEST SECTION                                          -->
+    <!-- ================================================================= -->
+    <div id="user-view" class="flex-1 flex flex-col justify-center items-center">
+      
+      <!-- STEP 1: Participant Information Form (ONLY Sleep Hours) -->
+      <div id="step-survey" class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="text-center space-y-2">
+          <span class="inline-block px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold rounded-full">
+            1단계 : 수면 시간 입력
+          </span>
+          <h2 class="text-2xl font-bold text-white">수면 시간 정보</h2>
+          <p class="text-xs text-slate-400">결과는 익명으로 연구 분석 DB에 수집됩니다.</p>
+        </div>
+
+        <form id="form-participant" class="space-y-4" onsubmit="event.preventDefault();">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">하루 평균 수면 시간 (시간 단위) *</label>
+            <input type="number" id="input-sleep" required min="0" max="24" step="0.5" placeholder="예: 6.5" 
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-base text-white font-medium focus:outline-none focus:border-indigo-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">테스트 진행 시간</label>
+            <select id="select-duration" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+              <option value="30">30초 (권장)</option>
+              <option value="45">45초</option>
+              <option value="60">60초 (정밀 측점용)</option>
+            </select>
+          </div>
+
+          <button type="button" id="btn-go-ready" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition active:scale-98 flex items-center justify-center space-x-2 mt-2">
+            <span>실험 지침 확인하기</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </form>
+      </div>
+
+      <!-- STEP 2: Instructions & Pre-Test Countdown -->
+      <div id="step-ready" class="hidden w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-center space-y-6">
+        <div class="space-y-2">
+          <span class="inline-block px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold rounded-full">
+            2단계 : 실험 규칙
+          </span>
+          <h2 class="text-2xl font-bold text-white">지속적 주의력 검사 (CPT)</h2>
+        </div>
+
+        <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 text-left text-xs sm:text-sm text-slate-300 space-y-2.5 leading-relaxed">
+          <p class="flex items-start"><i class="fa-solid fa-circle-dot text-indigo-400 mt-1 mr-2 text-xs"></i> 1초마다 화면의 숫자가 바뀝니다.</p>
+          <p class="flex items-start"><i class="fa-solid fa-circle-dot text-amber-400 mt-1 mr-2 text-xs"></i> <strong class="text-amber-400 font-bold ml-1">홀수 (1, 3, 5, 7, 9)</strong>가 나오면 버튼이나 <kbd class="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-white">Spacebar</kbd>를 누르세요!</p>
+          <p class="flex items-start"><i class="fa-solid fa-circle-dot text-indigo-400 mt-1 mr-2 text-xs"></i> <strong class="text-slate-200">짝수 (0, 2, 4, 6, 8)</strong>가 나올 때는 절대로 누르면 안 됩니다.</p>
+        </div>
+
+        <div id="ready-countdown-box" class="py-2">
+          <div id="ready-countdown" class="text-6xl font-black text-indigo-400 tracking-wider">3</div>
+          <p class="text-xs text-slate-500 mt-2">잠시 후 테스트가 바로 시작됩니다...</p>
+        </div>
+      </div>
+
+      <!-- STEP 3: Continuous Performance Test Screen -->
+      <div id="step-game" class="hidden w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center justify-between min-h-[380px]">
+        <!-- Progress Info Header -->
+        <div class="w-full flex justify-between items-center text-xs font-semibold text-slate-400 px-2 border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-1.5">
+            <i class="fa-regular fa-clock text-indigo-400"></i>
+            <span>남은 시간: <strong id="timer-text" class="text-indigo-400 font-bold text-sm">30s</strong></span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <i class="fa-solid fa-hashtag text-slate-500"></i>
+            <span>진행률: <strong id="progress-text" class="text-slate-200 text-sm">0/0</strong></span>
+          </div>
+        </div>
+
+        <!-- Single Digit Display Card -->
+        <div id="display-card" class="w-48 h-48 sm:w-56 sm:h-56 bg-slate-950 border-2 border-slate-800 rounded-3xl flex items-center justify-center my-6 shadow-2xl relative overflow-hidden transition-all duration-150">
+          <span id="number-display" class="text-8xl sm:text-9xl font-black text-white select-none animate-pop">-</span>
+        </div>
+
+        <!-- Large Target Action Button -->
+        <button id="btn-hit" class="w-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-extrabold text-lg sm:text-xl py-4 rounded-xl shadow-xl transition touch-manipulation flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-hand-pointer"></i>
+          <span>홀수일 때 누르세요! (Spacebar)</span>
+        </button>
+      </div>
+
+      <!-- STEP 4: Individual Result Summary -->
+      <div id="step-result" class="hidden w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="text-center space-y-1">
+          <div class="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-xl mb-2">
+            <i class="fa-solid fa-check"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-white">테스트 완료!</h2>
+          <p id="res-user-info" class="text-xs text-slate-400 font-medium"></p>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="grid grid-cols-2 gap-3 text-center">
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+            <span class="block text-xs text-slate-400 mb-1">집중력 점수</span>
+            <span id="res-score" class="text-3xl font-black text-indigo-400">0점</span>
+          </div>
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+            <span class="block text-xs text-slate-400 mb-1">평균 반응 속도</span>
+            <span id="res-reaction" class="text-3xl font-black text-amber-400">0 ms</span>
+          </div>
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+            <span class="block text-xs text-slate-400 mb-1">정확도</span>
+            <span id="res-accuracy" class="text-lg font-bold text-emerald-400">0%</span>
+          </div>
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+            <span class="block text-xs text-slate-400 mb-1">총 오류 횟수</span>
+            <span id="res-errors" class="text-lg font-bold text-rose-400">0회</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-300 leading-relaxed">
+          <p class="font-semibold text-indigo-300 mb-1"><i class="fa-solid fa-database text-indigo-400 mr-1"></i> 데이터 수집 완료</p>
+          <p id="res-status-msg">결과가 수집되어 통계에 자동 반영되었습니다.</p>
+        </div>
+
+        <button id="btn-restart" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl transition text-sm">
+          다시 하기
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 2: ADMIN ANALYTICS DASHBOARD                                 -->
+    <!-- ================================================================= -->
+    <div id="admin-view" class="hidden flex-1 flex flex-col space-y-6">
+      
+      <!-- Admin Header Bar -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
+        <div>
+          <span class="px-2.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-md text-xs font-semibold uppercase">
+            연구자 전용 통계 대시보드
+          </span>
+          <h2 class="text-2xl font-extrabold text-white mt-1">실험 데이터 수집 결과</h2>
+          <p class="text-xs text-slate-400">수면 시간과 집중력 간 상관관계 수치 분석 및 그래프 시각화</p>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-refresh-db" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>새로고침</span>
+          </button>
+          <button id="btn-export-csv" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-file-csv"></i>
+            <span>CSV 데이터 다운로드</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Statistical Overview Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+            <span>총 수집 데이터</span>
+            <i class="fa-solid fa-users text-indigo-400"></i>
+          </div>
+          <div id="stat-sample-count" class="text-3xl font-black text-white">0건</div>
+          <div class="text-[11px] text-slate-500 mt-1">유효 응답 데이터</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+            <span>수면시간 ↔ 반응속도 상관계수 (r)</span>
+            <i class="fa-solid fa-calculator text-amber-400"></i>
+          </div>
+          <div id="stat-r-reaction" class="text-3xl font-black text-amber-400">0.00</div>
+          <div id="stat-r-reaction-desc" class="text-[11px] text-slate-400 mt-1">수치 분석 중...</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+            <span>수면시간 ↔ 집중력점수 상관계수 (r)</span>
+            <i class="fa-solid fa-chart-line text-emerald-400"></i>
+          </div>
+          <div id="stat-r-score" class="text-3xl font-black text-emerald-400">0.00</div>
+          <div id="stat-r-score-desc" class="text-[11px] text-slate-400 mt-1">수치 분석 중...</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-2">
+            <span>전체 평균 수면 시간</span>
+            <i class="fa-solid fa-bed text-indigo-400"></i>
+          </div>
+          <div id="stat-avg-sleep" class="text-3xl font-black text-white">0 시간</div>
+          <div class="text-[11px] text-slate-500 mt-1">참가자 전체 평균</div>
+        </div>
+      </div>
+
+      <!-- Visual Analytics Section (Charts) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white flex items-center">
+              <i class="fa-solid fa-chart-scatter text-amber-400 mr-2"></i>
+              수면 시간 vs 반응 속도(ms) 산점도
+            </h3>
+            <span class="text-[10px] text-slate-500">값이 낮을수록 빠른 반응</span>
+          </div>
+          <div class="relative flex-1 min-h-[260px]">
+            <canvas id="chart-scatter"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white flex items-center">
+              <i class="fa-solid fa-chart-column text-indigo-400 mr-2"></i>
+              수면 구간별 평균 집중력 점수
+            </h3>
+            <span class="text-[10px] text-slate-500">6시간 미만 / 6~7.5시간 / 7.5시간 이상</span>
+          </div>
+          <div class="relative flex-1 min-h-[260px]">
+            <canvas id="chart-groups"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw Data Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center">
+            <i class="fa-solid fa-table text-emerald-400 mr-2"></i>
+            전체 수집 항목 원본 데이터
+          </h3>
+          <span id="table-count" class="text-xs text-slate-400">총 0개 항목</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800">
+              <tr>
+                <th class="p-3">일시</th>
+                <th class="p-3">수면시간</th>
+                <th class="p-3">반응속도(ms)</th>
+                <th class="p-3">정응답(Hits)</th>
+                <th class="p-3">오응답(FA)</th>
+                <th class="p-3">누락(Miss)</th>
+                <th class="p-3">최종점수</th>
+                <th class="p-3 text-center">작업</th>
+              </tr>
+            </thead>
+            <tbody id="table-body" class="divide-y divide-slate-800/60 bg-slate-900">
+              <tr>
+                <td colspan="8" class="p-6 text-center text-slate-500">데이터를 불러오는 중입니다...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Admin Authentication Modal -->
+  <div id="modal-auth" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 animate-pop">
+      <div class="text-center space-y-1">
+        <div class="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center mx-auto mb-2">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white">관리자 비밀번호</h3>
+        <p class="text-xs text-slate-400">연구 분석 페이지 접근 비밀번호를 입력하세요.</p>
+      </div>
+
+      <div>
+        <input type="password" id="input-admin-pass" placeholder="비밀번호 입력" 
+               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition text-center tracking-widest">
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="btn-cancel-auth" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-xl text-xs transition">
+          취소
+        </button>
+        <button id="btn-submit-auth" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-xs transition">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE IMPORTS (SDK 11.6.1 Module Script) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Global Environment Setup
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'cpt-sleep-math-report';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+      apiKey: "demo-api-key",
+      authDomain: "demo.firebaseapp.com",
+      projectId: "demo-project",
+      storageBucket: "demo.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:demo"
+    };
+
+    // Firebase Initialization
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+
+    // RULE 1 Path Construction
+    const getPublicCollection = () => collection(db, 'artifacts', appId, 'public', 'data', 'cpt_records');
+
+    // Authenticate
+    async function initAuth() {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Firebase auth error:", err);
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+    });
+
+    await initAuth();
+
+    // =================================================================
+    // APPLICATION STATE
+    // =================================================================
+    let isAdminView = false;
+    let isAdminAuthenticated = false;
+    let allRecords = [];
+    
+    // User State - ONLY Sleep Hours and Duration
+    let userInfo = { sleepHours: 0, duration: 30 };
+    
+    let testState = {
+      numbers: [],
+      currentIdx: 0,
+      timer: null,
+      timeLeft: 30,
+      currentNumTime: 0,
+      hasClickedCurrent: false,
+      gameTimeout: null,
+      
+      // Metrics
+      correctHits: 0,
+      missedOdds: 0,
+      falseAlarms: 0,
+      correctRejects: 0,
+      reactionTimes: []
+    };
+
+    // Chart instances
+    let scatterChart = null;
+    let groupChart = null;
+
+    // DOM Elements
+    const userView = document.getElementById('user-view');
+    const adminView = document.getElementById('admin-view');
+    const btnToggleAdmin = document.getElementById('btn-toggle-admin');
+    const adminBtnLabel = document.getElementById('admin-btn-label');
+
+    const stepSurvey = document.getElementById('step-survey');
+    const stepReady = document.getElementById('step-ready');
+    const stepGame = document.getElementById('step-game');
+    const stepResult = document.getElementById('step-result');
+
+    const modalAuth = document.getElementById('modal-auth');
+
+    // Toast UI
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast-message');
+      const toastText = document.getElementById('toast-text');
+      toast.classList.remove('hidden', 'bg-rose-500/10', 'border-rose-500/30', 'text-rose-300', 'bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-300');
+      
+      if (isError) {
+        toast.classList.add('bg-rose-500/10', 'border-rose-500/30', 'text-rose-300');
+      } else {
+        toast.classList.add('bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-300');
+      }
+      
+      toastText.textContent = msg;
+    }
+
+    // Admin Toggle & Authentication
+    btnToggleAdmin.addEventListener('click', () => {
+      if (isAdminView) {
+        isAdminView = false;
+        adminView.classList.add('hidden');
+        userView.classList.remove('hidden');
+        adminBtnLabel.textContent = '관리자 모드';
+      } else {
+        if (!isAdminAuthenticated) {
+          modalAuth.classList.remove('hidden');
+          document.getElementById('input-admin-pass').focus();
+        } else {
+          switchToAdmin();
+        }
+      }
+    });
+
+    document.getElementById('btn-cancel-auth').addEventListener('click', () => {
+      modalAuth.classList.add('hidden');
+    });
+
+    document.getElementById('btn-submit-auth').addEventListener('click', () => {
+      const pass = document.getElementById('input-admin-pass').value.trim();
+      // PASSWORD: 090116
+      if (pass === '090116') {
+        isAdminAuthenticated = true;
+        modalAuth.classList.add('hidden');
+        switchToAdmin();
+      } else {
+        alert('비밀번호가 올바르지 않습니다.');
+      }
+    });
+
+    function switchToAdmin() {
+      isAdminView = true;
+      userView.classList.add('hidden');
+      adminView.classList.remove('hidden');
+      adminBtnLabel.textContent = '실험 참가 모드';
+      fetchAdminData();
+    }
+
+    // CPT TEST LOGIC
+    document.getElementById('btn-go-ready').addEventListener('click', () => {
+      const sleep = parseFloat(document.getElementById('input-sleep').value);
+
+      if (isNaN(sleep) || sleep < 0 || sleep > 24) {
+        alert('올바른 수면 시간을 입력해 주세요 (0~24시간).');
+        return;
+      }
+
+      userInfo.sleepHours = sleep;
+      userInfo.duration = parseInt(document.getElementById('select-duration').value);
+
+      stepSurvey.classList.add('hidden');
+      stepReady.classList.remove('hidden');
+      startReadyCountdown();
+    });
+
+    function startReadyCountdown() {
+      let count = 3;
+      const countEl = document.getElementById('ready-countdown');
+      countEl.textContent = count;
+
+      const timer = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countEl.textContent = count;
+        } else {
+          clearInterval(timer);
+          stepReady.classList.add('hidden');
+          stepGame.classList.remove('hidden');
+          startGame();
+        }
+      }, 1000);
+    }
+
+    function startGame() {
+      testState.timeLeft = userInfo.duration;
+      testState.currentIdx = 0;
+      testState.correctHits = 0;
+      testState.missedOdds = 0;
+      testState.falseAlarms = 0;
+      testState.correctRejects = 0;
+      testState.reactionTimes = [];
+      testState.hasClickedCurrent = false;
+
+      // 1 number per 1 second
+      const totalCount = userInfo.duration;
+      testState.numbers = [];
+      for (let i = 0; i < totalCount; i++) {
+        testState.numbers.push(Math.floor(Math.random() * 10));
+      }
+
+      document.getElementById('timer-text').textContent = `${testState.timeLeft}s`;
+      document.getElementById('progress-text').textContent = `0/${totalCount}`;
+
+      nextNumber();
+
+      testState.timer = setInterval(() => {
+        testState.timeLeft -= 1;
+        document.getElementById('timer-text').textContent = `${testState.timeLeft}s`;
+        if (testState.timeLeft <= 0) {
+          finishGame();
+        }
+      }, 1000);
+    }
+
+    function nextNumber() {
+      if (testState.currentIdx >= testState.numbers.length) {
+        finishGame();
+        return;
+      }
+
+      if (testState.currentIdx > 0 && !testState.hasClickedCurrent) {
+        const prevNum = testState.numbers[testState.currentIdx - 1];
+        if (prevNum % 2 !== 0) testState.missedOdds++;
+        else testState.correctRejects++;
+      }
+
+      const num = testState.numbers[testState.currentIdx];
+      testState.hasClickedCurrent = false;
+      testState.currentNumTime = Date.now();
+
+      const numDisplay = document.getElementById('number-display');
+      numDisplay.textContent = num;
+      numDisplay.classList.remove('animate-pop');
+      void numDisplay.offsetWidth;
+      numDisplay.classList.add('animate-pop');
+
+      document.getElementById('progress-text').textContent = `${testState.currentIdx + 1}/${testState.numbers.length}`;
+      testState.currentIdx++;
+
+      if (testState.gameTimeout) clearTimeout(testState.gameTimeout);
+      testState.gameTimeout = setTimeout(nextNumber, 1000);
+    }
+
+    function handleUserClick() {
+      if (testState.hasClickedCurrent || testState.currentIdx === 0) return;
+
+      testState.hasClickedCurrent = true;
+      const reactionMs = Date.now() - testState.currentNumTime;
+      const currentNum = testState.numbers[testState.currentIdx - 1];
+
+      const displayCard = document.getElementById('display-card');
+
+      if (currentNum % 2 !== 0) {
+        testState.correctHits++;
+        testState.reactionTimes.push(reactionMs);
+        flashCardBorder(displayCard, 'border-emerald-500');
+      } else {
+        testState.falseAlarms++;
+        flashCardBorder(displayCard, 'border-rose-500');
+      }
+    }
+
+    function flashCardBorder(card, colorClass) {
+      card.classList.remove('border-slate-800', 'border-emerald-500', 'border-rose-500');
+      card.classList.add(colorClass);
+      setTimeout(() => {
+        card.classList.remove(colorClass);
+        card.classList.add('border-slate-800');
+      }, 200);
+    }
+
+    document.getElementById('btn-hit').addEventListener('click', handleUserClick);
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !stepGame.classList.contains('hidden')) {
+        e.preventDefault();
+        handleUserClick();
+      }
+    });
+
+    async function finishGame() {
+      clearInterval(testState.timer);
+      if (testState.gameTimeout) clearTimeout(testState.gameTimeout);
+
+      if (!testState.hasClickedCurrent && testState.currentIdx > 0) {
+        const lastNum = testState.numbers[testState.currentIdx - 1];
+        if (lastNum % 2 !== 0) testState.missedOdds++;
+        else testState.correctRejects++;
+      }
+
+      const totalOdds = testState.correctHits + testState.missedOdds;
+      const totalEvens = testState.falseAlarms + testState.correctRejects;
+      const totalDigits = totalOdds + totalEvens;
+
+      const accuracy = totalDigits > 0 ? Math.round(((testState.correctHits + testState.correctRejects) / totalDigits) * 100) : 0;
+      const avgReaction = testState.reactionTimes.length > 0 
+        ? Math.round(testState.reactionTimes.reduce((a, b) => a + b, 0) / testState.reactionTimes.length)
+        : 0;
+
+      let baseScore = accuracy * 0.7;
+      let reactionScore = avgReaction > 0 ? Math.max(0, (800 - avgReaction) / 10) : 0;
+      let finalScore = Math.min(100, Math.max(0, Math.round(baseScore + reactionScore - (testState.falseAlarms * 5))));
+
+      // Display Result
+      document.getElementById('res-user-info').textContent = `수면 시간: ${userInfo.sleepHours}시간`;
+      document.getElementById('res-score').textContent = `${finalScore}점`;
+      document.getElementById('res-reaction').textContent = avgReaction > 0 ? `${avgReaction} ms` : 'N/A';
+      document.getElementById('res-accuracy').textContent = `${accuracy}%`;
+      document.getElementById('res-errors').textContent = `${testState.falseAlarms + testState.missedOdds}회`;
+
+      stepGame.classList.add('hidden');
+      stepResult.classList.remove('hidden');
+
+      // Save Record to Firestore
+      const record = {
+        sleepHours: userInfo.sleepHours,
+        duration: userInfo.duration,
+        score: finalScore,
+        avgReactionMs: avgReaction,
+        accuracy: accuracy,
+        hits: testState.correctHits,
+        falseAlarms: testState.falseAlarms,
+        misses: testState.missedOdds,
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        if (!currentUser) await initAuth();
+        await addDoc(getPublicCollection(), record);
+        showToast('DB에 데이터가 정상적으로 수집되었습니다.');
+      } catch (err) {
+        console.error("Error saving record:", err);
+        showToast('DB 저장에 실패했습니다.', true);
+      }
+    }
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      stepResult.classList.add('hidden');
+      stepSurvey.classList.remove('hidden');
+    });
+
+    // STATISTICAL ANALYSIS & DASHBOARD RENDER
+    async function fetchAdminData() {
+      try {
+        if (!currentUser) await initAuth();
+        const querySnapshot = await getDocs(getPublicCollection());
+        allRecords = [];
+        querySnapshot.forEach((docSnap) => {
+          allRecords.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Memory sort by timestamp
+        allRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        renderAdminDashboard();
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        showToast('데이터를 불러오지 못했습니다.', true);
+      }
+    }
+
+    document.getElementById('btn-refresh-db').addEventListener('click', () => {
+      fetchAdminData();
+      showToast('데이터를 새로고침했습니다.');
+    });
+
+    // Pearson Correlation Coefficient Calculation
+    function calculatePearsonR(xArr, yArr) {
+      const n = xArr.length;
+      if (n < 2) return 0;
+
+      const sumX = xArr.reduce((a, b) => a + b, 0);
+      const sumY = yArr.reduce((a, b) => a + b, 0);
+
+      const meanX = sumX / n;
+      const meanY = sumY / n;
+
+      let num = 0;
+      let denX = 0;
+      let denY = 0;
+
+      for (let i = 0; i < n; i++) {
+        const dx = xArr[i] - meanX;
+        const dy = yArr[i] - meanY;
+        num += dx * dy;
+        denX += dx * dx;
+        denY += dy * dy;
+      }
+
+      if (denX === 0 || denY === 0) return 0;
+      return num / Math.sqrt(denX * denY);
+    }
+
+    function renderAdminDashboard() {
+      const sampleCount = allRecords.length;
+      document.getElementById('stat-sample-count').textContent = `${sampleCount}건`;
+      document.getElementById('table-count').textContent = `총 ${sampleCount}개 항목`;
+
+      if (sampleCount === 0) {
+        document.getElementById('table-body').innerHTML = `
+          <tr><td colspan="8" class="p-6 text-center text-slate-500">수집된 데이터가 없습니다. 먼저 테스트를 진행해 주세요.</td></tr>
+        `;
+        return;
+      }
+
+      const sleepArr = allRecords.map(r => parseFloat(r.sleepHours) || 0);
+      const reactionArr = allRecords.map(r => parseFloat(r.avgReactionMs) || 0);
+      const scoreArr = allRecords.map(r => parseFloat(r.score) || 0);
+
+      const avgSleep = (sleepArr.reduce((a, b) => a + b, 0) / sampleCount).toFixed(1);
+      document.getElementById('stat-avg-sleep').textContent = `${avgSleep} 시간`;
+
+      const rReaction = calculatePearsonR(sleepArr, reactionArr);
+      const rScore = calculatePearsonR(sleepArr, scoreArr);
+
+      document.getElementById('stat-r-reaction').textContent = rReaction.toFixed(3);
+      document.getElementById('stat-r-reaction-desc').textContent = 
+        rReaction < -0.3 ? '음의 상관관계 (수면 증가 → 반응속도 빨라짐)' : 
+        (rReaction > 0.3 ? '양의 상관관계' : '약한 상관관계');
+
+      document.getElementById('stat-r-score').textContent = rScore.toFixed(3);
+      document.getElementById('stat-r-score-desc').textContent = 
+        rScore > 0.3 ? '양의 상관관계 (수면 증가 → 집중력 점수 상승)' : 
+        (rScore < -0.3 ? '음의 상관관계' : '약한 상관관계');
+
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = allRecords.map(r => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="p-3 text-slate-400">${r.timestamp ? new Date(r.timestamp).toLocaleDateString() + ' ' + new Date(r.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}</td>
+          <td class="p-3 text-amber-300 font-bold">${r.sleepHours}h</td>
+          <td class="p-3 font-mono text-indigo-300">${r.avgReactionMs} ms</td>
+          <td class="p-3 text-emerald-400 font-medium">${r.hits}</td>
+          <td class="p-3 text-rose-400 font-medium">${r.falseAlarms}</td>
+          <td class="p-3 text-amber-400 font-medium">${r.misses}</td>
+          <td class="p-3 font-bold text-indigo-400">${r.score}점</td>
+          <td class="p-3 text-center">
+            <button onclick="window.deleteRecord('${r.id}')" class="text-slate-500 hover:text-rose-400 transition">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      renderCharts(allRecords);
+    }
+
+    window.deleteRecord = async (docId) => {
+      if (!confirm('이 항목을 삭제하시겠습니까?')) return;
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'cpt_records', docId));
+        showToast('삭제되었습니다.');
+        fetchAdminData();
+      } catch (err) {
+        console.error("Delete failed:", err);
+        showToast('삭제 실패', true);
+      }
+    };
+
+    function renderCharts(records) {
+      if (scatterChart) scatterChart.destroy();
+      if (groupChart) groupChart.destroy();
+
+      const scatterData = records.map(r => ({
+        x: parseFloat(r.sleepHours),
+        y: parseFloat(r.avgReactionMs)
+      }));
+
+      const ctxScatter = document.getElementById('chart-scatter').getContext('2d');
+      scatterChart = new Chart(ctxScatter, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: '수면시간 vs 반응속도',
+            data: scatterData,
+            backgroundColor: 'rgba(251, 191, 36, 0.8)',
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: '수면 시간 (시간)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+            y: { title: { display: true, text: '반응 속도 (ms)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+          },
+          plugins: { legend: { labels: { color: '#e2e8f0' } } }
+        }
+      });
+
+      const groupShort = records.filter(r => r.sleepHours < 6);
+      const groupMid = records.filter(r => r.sleepHours >= 6 && r.sleepHours < 7.5);
+      const groupOptimal = records.filter(r => r.sleepHours >= 7.5);
+
+      const getAvgScore = arr => arr.length > 0 ? Math.round(arr.reduce((a, b) => a + parseFloat(b.score), 0) / arr.length) : 0;
+
+      const ctxGroup = document.getElementById('chart-groups').getContext('2d');
+      groupChart = new Chart(ctxGroup, {
+        type: 'bar',
+        data: {
+          labels: ['6시간 미만 (부족)', '6~7.5시간 (보통)', '7.5시간 이상 (충분)'],
+          datasets: [{
+            label: '평균 집중력 점수',
+            data: [getAvgScore(groupShort), getAvgScore(groupMid), getAvgScore(groupOptimal)],
+            backgroundColor: ['rgba(244, 63, 94, 0.7)', 'rgba(251, 191, 36, 0.7)', 'rgba(16, 185, 129, 0.7)'],
+            borderColor: ['#f43f5e', '#f59e0b', '#10b981'],
+            borderWidth: 1.5,
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+            y: { min: 0, max: 100, title: { display: true, text: '평균 점수 (점)', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // CSV Download Logic
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      if (allRecords.length === 0) {
+        alert('다운로드할 데이터가 없습니다.');
+        return;
+      }
+
+      let csvContent = "\uFEFF";
+      csvContent += "일시,수면시간(h),반응속도(ms),정응답(Hits),오응답(FA),누락(Misses),최종점수\n";
+
+      allRecords.forEach(r => {
+        csvContent += `"${r.timestamp || ''}",${r.sleepHours},${r.avgReactionMs},${r.hits},${r.falseAlarms},${r.misses},${r.score}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `수면_집중력_데이터_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+  </script>
+</body>
+</html>
